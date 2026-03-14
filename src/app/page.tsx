@@ -172,6 +172,13 @@ export default function Dashboard() {
     fetchFeeds("neutral", "all", 1, "");
     fetchTabCounts();
     fetchAlerts();
+
+    // Auto-refresh feeds every 5 minutes
+    const interval = setInterval(() => {
+      fetchFeeds();
+      fetchTabCounts();
+    }, 5 * 60 * 1000);
+    return () => clearInterval(interval);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
