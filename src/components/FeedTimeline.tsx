@@ -8,7 +8,7 @@ interface FeedTimelineProps {
   alertItemIds: Set<string>;
   alertKeywordMap: Record<string, string>;
   isLoading: boolean;
-  onRead: (item: FeedItem) => void;
+  onRead: (item: FeedItem, fallbackWindow: Window | null) => void;
 }
 
 export function FeedTimeline({

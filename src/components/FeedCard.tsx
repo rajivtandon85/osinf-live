@@ -8,7 +8,7 @@ interface FeedCardProps {
   item: FeedItem;
   isAlert?: boolean;
   alertKeyword?: string;
-  onRead: (item: FeedItem) => void;
+  onRead: (item: FeedItem, fallbackWindow: Window | null) => void;
 }
 
 export function FeedCard({ item, isAlert, alertKeyword, onRead }: FeedCardProps) {
@@ -21,11 +21,15 @@ export function FeedCard({ item, isAlert, alertKeyword, onRead }: FeedCardProps)
     <div
       role="button"
       tabIndex={0}
-      onClick={() => onRead(item)}
+      onClick={() => {
+        const win = window.open("about:blank", "_blank");
+        onRead(item, win);
+      }}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          onRead(item);
+          const win = window.open("about:blank", "_blank");
+          onRead(item, win);
         }
       }}
       className={`

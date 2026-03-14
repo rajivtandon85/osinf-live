@@ -11,7 +11,7 @@ interface AlertsPanelProps {
   onAddKeyword: (keyword: string, categories?: CategoryId[]) => Promise<void>;
   onDeleteKeyword: (id: string) => Promise<void>;
   onClose: () => void;
-  onRead: (item: FeedItem) => void;
+  onRead: (item: FeedItem, fallbackWindow: Window | null) => void;
 }
 
 export function AlertsPanel({

@@ -3,7 +3,7 @@
 import { FeedItem } from "@/types/feed";
 import { CATEGORIES } from "@/lib/sources";
 import { formatDistanceToNow } from "date-fns";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface ArticleData {
   title: string;
@@ -16,13 +16,14 @@ interface ArticleData {
 
 interface ArticleReaderProps {
   item: FeedItem;
+  fallbackWindow: Window | null;
   onClose: () => void;
 }
 
-export function ArticleReader({ item, onClose }: ArticleReaderProps) {
+export function ArticleReader({ item, fallbackWindow, onClose }: ArticleReaderProps) {
   const [article, setArticle] = useState<ArticleData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [failed, setFailed] = useState(false);
+  const winRef = useRef(fallbackWindow);
 
   const category = CATEGORIES[item.category];
   const timeAgo = formatDistanceToNow(new Date(item.publishedAt), {
@@ -57,16 +58,27 @@ export function ArticleReader({ item, onClose }: ArticleReaderProps) {
         if (cancelled) return;
 
         if (json.success && json.data?.content) {
+          // Extraction succeeded — close the fallback tab and show reader
+          try { winRef.current?.close(); } catch { /* cross-origin */ }
           setArticle(json.data);
           setLoading(false);
         } else {
-          setLoading(false);
-          setFailed(true);
+          // Extraction failed — redirect the fallback tab to the article
+          try {
+            if (winRef.current && !winRef.current.closed) {
+              winRef.current.location.href = item.url;
+            }
+          } catch { /* cross-origin */ }
+          onClose();
         }
       } catch {
         if (!cancelled) {
-          setLoading(false);
-          setFailed(true);
+          try {
+            if (winRef.current && !winRef.current.closed) {
+              winRef.current.location.href = item.url;
+            }
+          } catch { /* cross-origin */ }
+          onClose();
         }
       }
     }
@@ -75,7 +87,7 @@ export function ArticleReader({ item, onClose }: ArticleReaderProps) {
     return () => {
       cancelled = true;
     };
-  }, [item.url]);
+  }, [item.url, onClose]);
 
   return (
     <div
@@ -167,21 +179,6 @@ export function ArticleReader({ item, onClose }: ArticleReaderProps) {
                 dangerouslySetInnerHTML={{ __html: article.content }}
               />
             </>
-          ) : failed ? (
-            <div className="flex flex-col items-center gap-5 py-16 text-center">
-              <div className="text-3xl opacity-20">↗</div>
-              <p className="text-sm text-white/40">
-                Could not extract article content from {item.sourceName}.
-              </p>
-              <a
-                href={item.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-lg bg-white/10 px-5 py-2.5 text-sm font-medium text-white/80 ring-1 ring-white/15 transition hover:bg-white/15 hover:text-white"
-              >
-                Read on {item.sourceName} ↗
-              </a>
-            </div>
           ) : null}
         </div>
       </div>

@@ -45,6 +45,7 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResultCount, setSearchResultCount] = useState<number | null>(null);
   const [readingItem, setReadingItem] = useState<FeedItem | null>(null);
+  const [fallbackWindow, setFallbackWindow] = useState<Window | null>(null);
 
   // We also need total counts for the alignment tabs, so fetch both counts
   const [westCount, setWestCount] = useState(0);
@@ -225,7 +226,7 @@ export default function Dashboard() {
           alertItemIds={alertItemIds}
           alertKeywordMap={alertKeywordMap}
           isLoading={isLoading}
-          onRead={setReadingItem}
+          onRead={(item, win) => { setReadingItem(item); setFallbackWindow(win); }}
         />
 
         {/* Pagination */}
@@ -259,14 +260,15 @@ export default function Dashboard() {
           onAddKeyword={handleAddKeyword}
           onDeleteKeyword={handleDeleteKeyword}
           onClose={() => setShowAlerts(false)}
-          onRead={setReadingItem}
+          onRead={(item, win) => { setReadingItem(item); setFallbackWindow(win); }}
         />
       )}
 
       {readingItem && (
         <ArticleReader
           item={readingItem}
-          onClose={() => setReadingItem(null)}
+          fallbackWindow={fallbackWindow}
+          onClose={() => { setReadingItem(null); setFallbackWindow(null); }}
         />
       )}
     </div>
