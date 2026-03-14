@@ -3,7 +3,7 @@
 import { FeedItem } from "@/types/feed";
 import { CATEGORIES } from "@/lib/sources";
 import { formatDistanceToNow } from "date-fns";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 
 interface ArticleData {
   title: string;
@@ -22,16 +22,12 @@ interface ArticleReaderProps {
 export function ArticleReader({ item, onClose }: ArticleReaderProps) {
   const [article, setArticle] = useState<ArticleData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
 
   const category = CATEGORIES[item.category];
   const timeAgo = formatDistanceToNow(new Date(item.publishedAt), {
     addSuffix: true,
   });
-
-  const fallbackToNewTab = useCallback(() => {
-    window.open(item.url, "_blank", "noopener,noreferrer");
-    onClose();
-  }, [item.url, onClose]);
 
   useEffect(() => {
     document.body.style.overflow = "hidden";
@@ -64,10 +60,14 @@ export function ArticleReader({ item, onClose }: ArticleReaderProps) {
           setArticle(json.data);
           setLoading(false);
         } else {
-          fallbackToNewTab();
+          setLoading(false);
+          setFailed(true);
         }
       } catch {
-        if (!cancelled) fallbackToNewTab();
+        if (!cancelled) {
+          setLoading(false);
+          setFailed(true);
+        }
       }
     }
 
@@ -75,7 +75,7 @@ export function ArticleReader({ item, onClose }: ArticleReaderProps) {
     return () => {
       cancelled = true;
     };
-  }, [item.url, fallbackToNewTab]);
+  }, [item.url]);
 
   return (
     <div
@@ -167,6 +167,21 @@ export function ArticleReader({ item, onClose }: ArticleReaderProps) {
                 dangerouslySetInnerHTML={{ __html: article.content }}
               />
             </>
+          ) : failed ? (
+            <div className="flex flex-col items-center gap-5 py-16 text-center">
+              <div className="text-3xl opacity-20">↗</div>
+              <p className="text-sm text-white/40">
+                Could not extract article content from {item.sourceName}.
+              </p>
+              <a
+                href={item.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-lg bg-white/10 px-5 py-2.5 text-sm font-medium text-white/80 ring-1 ring-white/15 transition hover:bg-white/15 hover:text-white"
+              >
+                Read on {item.sourceName} ↗
+              </a>
+            </div>
           ) : null}
         </div>
       </div>
