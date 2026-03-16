@@ -58,11 +58,11 @@ export const FEED_SOURCES: FeedSource[] = [
   {
     id: "reuters-world",
     name: "Reuters",
-    url: "https://feeds.reuters.com/reuters/worldNews",
+    url: "https://news.google.com/rss/search?q=source:reuters+when:1d&hl=en-US&gl=US&ceid=US:en",
     category: "geopolitical",
     alignment: "west",
     country: "UK",
-    description: "Western wire service",
+    description: "Western wire service (via Google News)",
   },
   {
     id: "bbc-world",
@@ -76,16 +76,16 @@ export const FEED_SOURCES: FeedSource[] = [
   {
     id: "ap-world",
     name: "AP News",
-    url: "https://rsshub.app/apnews/topics/world-news",
+    url: "https://news.google.com/rss/search?q=source:apnews+when:1d&hl=en-US&gl=US&ceid=US:en",
     category: "geopolitical",
     alignment: "west",
     country: "US",
-    description: "US wire service",
+    description: "US wire service (via Google News)",
   },
   {
     id: "rferl",
     name: "Radio Free Europe",
-    url: "https://www.rferl.org/api/zmoepvpqvpqou",
+    url: "https://pressroom.rferl.org/rss",
     category: "geopolitical",
     alignment: "west",
     country: "US",
@@ -166,11 +166,11 @@ export const FEED_SOURCES: FeedSource[] = [
   {
     id: "kyodo",
     name: "Kyodo News",
-    url: "https://english.kyodonews.net/rss/all.xml",
+    url: "https://news.google.com/rss/search?q=site:english.kyodonews.net+when:1d&hl=en-US&gl=US&ceid=US:en",
     category: "geopolitical",
     alignment: "west",
     country: "Japan",
-    description: "Japanese wire, generally US-aligned",
+    description: "Japanese wire, generally US-aligned (via Google News)",
   },
   {
     id: "daily-star-bd",

@@ -110,10 +110,33 @@ function normalizeTags(categories: unknown): string[] | undefined {
     .filter((t): t is string => typeof t === "string" && t.length > 0);
 }
 
+function getHostname(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
+function isSponsored(item: { link?: string; isoDate?: string; pubDate?: string }, sourceUrl: string): boolean {
+  if (!item.isoDate && !item.pubDate) return true;
+
+  if (item.link) {
+    const itemHost = getHostname(item.link);
+    const sourceHost = getHostname(sourceUrl);
+    if (itemHost && sourceHost && !itemHost.includes(sourceHost) && !sourceHost.includes(itemHost)) {
+      if (!item.link.includes("google.com/rss")) return true;
+    }
+  }
+
+  return false;
+}
+
 async function fetchSource(source: FeedSource): Promise<FeedItem[]> {
   try {
     const feed = await parser.parseURL(source.url);
     return (feed.items || []).slice(0, 25)
+      .filter((item) => !isSponsored(item, source.url))
       .map((item) => {
         const rawItem = item as unknown as Record<string, unknown>;
         const link = item.link || item.guid || source.url;
