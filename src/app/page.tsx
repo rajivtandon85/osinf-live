@@ -76,7 +76,7 @@ export default function Dashboard() {
           setPage(pg);
           setSearchResultCount(q.trim() ? json.data.total : null);
         }
-      } finally {
+      } catch { /* silently ignore network errors from background refresh */ } finally {
         setIsLoading(false);
       }
     },
@@ -84,16 +84,18 @@ export default function Dashboard() {
   );
 
   const fetchTabCounts = useCallback(async () => {
-    const [wRes, nRes] = await Promise.all([
-      fetch("/api/feeds?alignment=west&limit=1"),
-      fetch("/api/feeds?alignment=neutral&limit=1"),
-    ]);
-    const [wJson, nJson]: FeedResponse[] = await Promise.all([
-      wRes.json(),
-      nRes.json(),
-    ]);
-    if (wJson.success) setWestCount(wJson.data.total);
-    if (nJson.success) setNeutralCount(nJson.data.total);
+    try {
+      const [wRes, nRes] = await Promise.all([
+        fetch("/api/feeds?alignment=west&limit=1"),
+        fetch("/api/feeds?alignment=neutral&limit=1"),
+      ]);
+      const [wJson, nJson]: FeedResponse[] = await Promise.all([
+        wRes.json(),
+        nRes.json(),
+      ]);
+      if (wJson.success) setWestCount(wJson.data.total);
+      if (nJson.success) setNeutralCount(nJson.data.total);
+    } catch { /* silently ignore network errors from background refresh */ }
   }, []);
 
   const fetchAlerts = useCallback(async () => {
