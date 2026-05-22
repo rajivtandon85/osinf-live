@@ -36,6 +36,7 @@ export default function ReaderPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [blocked, setBlocked] = useState(false);
+  const [nextItem, setNextItem] = useState<FeedItem | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -52,6 +53,18 @@ export default function ReaderPage() {
         if (cancelled) return;
         const feedItem: FeedItem = itemJson.data;
         setItem(feedItem);
+
+        const nextParams = new URLSearchParams({
+          category: feedItem.category,
+          page: "1",
+          limit: "12",
+        });
+        const nextRes = await fetch(`/api/feeds?${nextParams}`);
+        const nextJson = await nextRes.json();
+        if (nextJson?.success && Array.isArray(nextJson?.data?.items)) {
+          const candidate = nextJson.data.items.find((candidateItem: FeedItem) => candidateItem.id !== feedItem.id);
+          setNextItem(candidate || null);
+        }
 
         const readRes = await fetch(`/api/read?url=${encodeURIComponent(feedItem.url)}`);
         const readJson: ReadResponse = await readRes.json();
@@ -101,6 +114,12 @@ export default function ReaderPage() {
     router.push(from);
   };
 
+  const handleNext = () => {
+    if (!nextItem) return;
+    const nextFrom = encodeURIComponent(from);
+    router.push(`/read/${nextItem.id}?from=${nextFrom}`);
+  };
+
   return (
     <div className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
       <header className="sticky top-0 z-50 border-b border-[var(--line)] bg-[var(--bg)]/95 backdrop-blur-md">
@@ -112,6 +131,15 @@ export default function ReaderPage() {
             ← Back to Dashboard
           </button>
           <div className="flex items-center gap-2">
+            {nextItem && (
+              <button
+                onClick={handleNext}
+                className="rounded-md border border-[var(--line)] bg-[var(--panel)] px-3 py-1.5 text-xs text-[var(--text)] transition hover:bg-[var(--panel-2)]"
+                title={nextItem.title}
+              >
+                Next in Category →
+              </button>
+            )}
             <ThemeToggle />
             {item && (
               <a
@@ -144,6 +172,11 @@ export default function ReaderPage() {
           {!loading && item && (
             <>
               <div className="mb-5 flex flex-wrap items-center gap-2 text-xs">
+                {category && (
+                  <span className="rounded bg-[var(--panel-2)] px-2 py-0.5 text-[var(--muted)]">
+                    {category.label} &gt; {item.sourceType.toUpperCase()}
+                  </span>
+                )}
                 {category && (
                   <span className={`rounded-full px-2 py-0.5 ring-1 ${category.bgColor} ${category.color} ${category.borderColor}`}>
                     {category.icon} {category.label}

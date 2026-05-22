@@ -8,6 +8,7 @@ export async function GET(req: NextRequest) {
   const category = searchParams.get("category");
   const alignment = searchParams.get("alignment") as "west" | "neutral" | null;
   const sourceType = searchParams.get("sourceType") as "news" | "osint" | "osinf" | null;
+  const preset = searchParams.get("preset") as "threat-intel" | "conflict-watch" | null;
   const query = searchParams.get("q")?.trim().toLowerCase();
   const page = parseInt(searchParams.get("page") || "1", 10);
   const limit = parseInt(searchParams.get("limit") || "30", 10);
@@ -31,6 +32,16 @@ export async function GET(req: NextRequest) {
 
     if (category && category !== "all") {
       items = items.filter((item) => item.category === category);
+    }
+
+    if (preset === "threat-intel") {
+      items = items.filter(
+        (item) => item.category === "cyber" || item.category === "dark-web" || item.sourceType === "osinf"
+      );
+    }
+
+    if (preset === "conflict-watch") {
+      items = items.filter((item) => item.category === "geopolitical" || item.sourceType === "osint");
     }
 
     // Full-text keyword search across title, summary, source name, and tags
