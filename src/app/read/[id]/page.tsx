@@ -23,6 +23,19 @@ interface ReadResponse {
   code?: string;
 }
 
+function feedSummaryFallback(feedItem: FeedItem, message: string): { article: ArticleData; message: string } {
+  return {
+    article: {
+      title: feedItem.title,
+      content: `<p>${feedItem.summary || "This source did not expose full text for extraction."}</p>`,
+      byline: "",
+      siteName: feedItem.sourceName,
+      method: "feed-summary",
+    },
+    message,
+  };
+}
+
 const SKELETON_WIDTHS = [92, 76, 84, 97, 72, 90, 80, 88];
 
 export default function ReaderPage() {
@@ -67,33 +80,34 @@ export default function ReaderPage() {
         }
 
         const readRes = await fetch(`/api/read?url=${encodeURIComponent(feedItem.url)}`);
-        const readJson: ReadResponse = await readRes.json();
+        let readJson: ReadResponse | null = null;
+        try {
+          readJson = await readRes.json();
+        } catch {
+          readJson = null;
+        }
         if (cancelled) return;
 
-        if (readJson.success && readJson.data?.content) {
+        if (readJson?.success && readJson.data?.content) {
           setArticle(readJson.data);
-        } else if (readJson.code === "SOURCE_BLOCKED") {
+        } else if (readJson?.code === "SOURCE_BLOCKED") {
           setBlocked(true);
-          setArticle({
-            title: feedItem.title,
-            content: `<p>${feedItem.summary || "This publisher blocked full extraction in-app."}</p>`,
-            byline: "",
-            siteName: feedItem.sourceName,
-            method: "feed-summary",
-          });
-          setError("Publisher protection blocked full extraction. You can still open original below.");
+          const fallback = feedSummaryFallback(feedItem, "Publisher protection blocked full extraction. You can still open original below.");
+          setArticle(fallback.article);
+          setError(fallback.message);
+        } else if (!readRes.ok) {
+          const fallback = feedSummaryFallback(feedItem, "Source could not be parsed right now. Showing feed summary in-app.");
+          setArticle(fallback.article);
+          setError(fallback.message);
         } else {
-          setArticle({
-            title: feedItem.title,
-            content: `<p>${feedItem.summary || "This source did not expose full text for extraction."}</p>`,
-            byline: "",
-            siteName: feedItem.sourceName,
-            method: "feed-summary",
-          });
-          setError("Showing feed summary because full extraction was unavailable.");
+          const fallback = feedSummaryFallback(feedItem, "Showing feed summary because full extraction was unavailable.");
+          setArticle(fallback.article);
+          setError(fallback.message);
         }
       } catch {
-        if (!cancelled) setError("Failed to load article.");
+        if (!cancelled) {
+          setError("Failed to load article.");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }

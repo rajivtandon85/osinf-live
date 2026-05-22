@@ -180,7 +180,7 @@ export async function GET(req: NextRequest) {
         );
       }
       return NextResponse.json(
-        { success: false, error: `Fetch failed: ${response.status}` },
+        { success: false, error: `Fetch failed: ${response.status}`, code: "FETCH_FAILED" },
         { status: 502 }
       );
     }
@@ -195,11 +195,21 @@ export async function GET(req: NextRequest) {
     }
 
     // Parse with JSDOM + Readability
-    const dom = new JSDOM(html, { url });
-    const reader = new Readability(dom.window.document, {
-      keepClasses: false,
-    });
-    const article = reader.parse();
+    let dom: JSDOM;
+    let article: ReturnType<Readability["parse"]>;
+    try {
+      dom = new JSDOM(html, { url });
+      const reader = new Readability(dom.window.document, {
+        keepClasses: false,
+      });
+      article = reader.parse();
+    } catch (err) {
+      console.error("[api/read] dom/readability failure:", (err as Error).message);
+      return NextResponse.json(
+        { success: false, error: "Could not parse source document", code: "PARSER_FAILED" },
+        { status: 422 }
+      );
+    }
 
     let content = article?.content || "";
     let byline = article?.byline || "";
@@ -244,9 +254,9 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ success: true, data });
   } catch (err) {
-    console.error("[api/read]", (err as Error).message);
+    console.error("[api/read] unhandled:", (err as Error).message);
     return NextResponse.json(
-      { success: false, error: "Extraction failed" },
+      { success: false, error: "Extraction failed", code: "UNHANDLED" },
       { status: 500 }
     );
   }
