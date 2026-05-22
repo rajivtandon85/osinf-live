@@ -3,10 +3,14 @@ import { getCachedFeeds, getLastRefreshed, refreshAllFeeds } from "@/lib/feedPar
 
 export const dynamic = "force-dynamic";
 
+function normalizeItem<T extends { sourceType?: string }>(item: T): T & { sourceType: "news" | "osint" | "osinf" } {
+  const sourceType = item.sourceType === "osint" || item.sourceType === "osinf" ? item.sourceType : "news";
+  return { ...item, sourceType };
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const category = searchParams.get("category");
-  const alignment = searchParams.get("alignment") as "west" | "neutral" | null;
   const sourceType = searchParams.get("sourceType") as "news" | "osint" | "osinf" | null;
   const preset = searchParams.get("preset") as "threat-intel" | "conflict-watch" | null;
   const query = searchParams.get("q")?.trim().toLowerCase();
@@ -22,9 +26,7 @@ export async function GET(req: NextRequest) {
       items = await getCachedFeeds();
     }
 
-    if (alignment) {
-      items = items.filter((item) => item.alignment === alignment);
-    }
+    items = items.map((item) => normalizeItem(item));
 
     if (sourceType) {
       items = items.filter((item) => item.sourceType === sourceType);

@@ -174,7 +174,7 @@ export default function ReaderPage() {
               <div className="mb-5 flex flex-wrap items-center gap-2 text-xs">
                 {category && (
                   <span className="rounded bg-[var(--panel-2)] px-2 py-0.5 text-[var(--muted)]">
-                    {category.label} &gt; {item.sourceType.toUpperCase()}
+                    {category.label} &gt; {(item.sourceType || "news").toUpperCase()}
                   </span>
                 )}
                 {category && (
@@ -182,7 +182,7 @@ export default function ReaderPage() {
                     {category.icon} {category.label}
                   </span>
                 )}
-                <span className="rounded bg-[var(--panel-2)] px-2 py-0.5 uppercase">{item.sourceType}</span>
+                <span className="rounded bg-[var(--panel-2)] px-2 py-0.5 uppercase">{item.sourceType || "news"}</span>
                 <span className="text-[var(--muted)]">{item.sourceName}</span>
                 <span className="text-[var(--muted)]">•</span>
                 <span className="text-[var(--muted)]">
@@ -199,6 +199,10 @@ export default function ReaderPage() {
                 </p>
               )}
 
+              {article?.content && (
+                <div className="article-content max-w-none" dangerouslySetInnerHTML={{ __html: article.content }} />
+              )}
+
               {blocked ? (
                 <div className="rounded-lg border border-amber-500/35 bg-amber-500/10 p-4 text-sm text-amber-300">
                   Publisher blocked full article extraction. Showing feed summary in-app.
@@ -207,9 +211,7 @@ export default function ReaderPage() {
                 <div className="rounded-lg border border-amber-500/35 bg-amber-500/10 p-4 text-sm text-amber-300">
                   {error}
                 </div>
-              ) : (
-                <div className="article-content max-w-none" dangerouslySetInnerHTML={{ __html: article?.content || "" }} />
-              )}
+              ) : null}
 
               <div className="mt-8">
                 <AdSlot label="In-Article Ad (300x250)" />

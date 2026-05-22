@@ -29,7 +29,6 @@ interface AlertsResponse {
   };
 }
 
-type Perspective = "all" | "west" | "neutral";
 type Preset = "none" | "threat-intel" | "conflict-watch";
 type PrimaryChip = "all" | CategoryId | "osint" | "osinf";
 
@@ -63,7 +62,6 @@ export default function Dashboard() {
   const [items, setItems] = useState<FeedItem[]>([]);
   const [lastRefreshed, setLastRefreshed] = useState<string | null>(null);
   const [selectedChip, setSelectedChip] = useState<PrimaryChip>("all");
-  const [perspective, setPerspective] = useState<Perspective>("all");
   const [preset, setPreset] = useState<Preset>("none");
   const [selectedCategory, setSelectedCategory] = useState<CategoryId | "all">("all");
   const [page, setPage] = useState(1);
@@ -98,7 +96,6 @@ export default function Dashboard() {
   const fetchFeeds = useCallback(
     async (
       chip: PrimaryChip = selectedChip,
-      perspectiveFilter: Perspective = perspective,
       pg = 1,
       q: string = searchQuery,
       presetFilter: Preset = preset
@@ -110,7 +107,6 @@ export default function Dashboard() {
 
         if (category !== "all") params.set("category", category);
         if (sourceType !== "all") params.set("sourceType", sourceType);
-        if (perspectiveFilter !== "all") params.set("alignment", perspectiveFilter);
         if (q.trim()) params.set("q", q.trim());
         if (presetFilter !== "none") params.set("preset", presetFilter);
 
@@ -129,7 +125,7 @@ export default function Dashboard() {
         setIsLoading(false);
       }
     },
-    [selectedChip, perspective, searchQuery, preset, resolveFilters]
+    [selectedChip, searchQuery, preset, resolveFilters]
   );
 
   const fetchChipCounts = useCallback(async () => {
@@ -145,7 +141,6 @@ export default function Dashboard() {
           const params = new URLSearchParams({ limit: "1", page: "1" });
           if (category !== "all") params.set("category", category);
           if (sourceType !== "all") params.set("sourceType", sourceType);
-          if (perspective !== "all") params.set("alignment", perspective);
           if (searchQuery.trim()) params.set("q", searchQuery.trim());
           const res = await fetch(`/api/feeds?${params}`);
           const json: FeedResponse = await res.json();
@@ -157,7 +152,7 @@ export default function Dashboard() {
     } catch {
       // keep last known counts
     }
-  }, [items.length, perspective, preset, resolveFilters, searchQuery]);
+  }, [items.length, preset, resolveFilters, searchQuery]);
 
   const fetchAlerts = useCallback(async () => {
     const res = await fetch("/api/alerts");
@@ -173,7 +168,7 @@ export default function Dashboard() {
     try {
       await fetch("/api/feeds/refresh", { method: "POST" });
       await Promise.all([
-        fetchFeeds(selectedChip, perspective, 1, searchQuery, preset),
+        fetchFeeds(selectedChip, 1, searchQuery, preset),
         fetchChipCounts(),
         fetchAlerts(),
       ]);
@@ -186,26 +181,19 @@ export default function Dashboard() {
     setPreset("none");
     setSelectedChip(chip);
     setSelectedCategory("all");
-    fetchFeeds(chip, perspective, 1, searchQuery, "none");
+    fetchFeeds(chip, 1, searchQuery, "none");
   };
 
   const handleSearch = (q: string) => {
     setSearchQuery(q);
     setSelectedCategory("all");
-    fetchFeeds(selectedChip, perspective, 1, q, preset);
+    fetchFeeds(selectedChip, 1, q, preset);
   };
-
-  const handlePerspectiveChange = (next: Perspective) => {
-    setPerspective(next);
-    setSelectedCategory("all");
-    fetchFeeds(selectedChip, next, 1, searchQuery, preset);
-  };
-
   const handlePreset = (next: Preset) => {
     setPreset(next);
     setSelectedChip("all");
     setSelectedCategory("all");
-    fetchFeeds("all", perspective, 1, searchQuery, next);
+    fetchFeeds("all", 1, searchQuery, next);
   };
 
   const handleRead = (item: FeedItem) => {
@@ -245,7 +233,7 @@ export default function Dashboard() {
   const alertKeywordMap = useMemo(() => Object.fromEntries(matches.map((m) => [m.itemId, m.keyword])), [matches]);
 
   useEffect(() => {
-    fetchFeeds("all", "all", 1, "", "none");
+    fetchFeeds("all", 1, "", "none");
     fetchChipCounts();
     fetchAlerts();
 
@@ -258,7 +246,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchChipCounts();
-  }, [perspective, preset, searchQuery, fetchChipCounts]);
+  }, [preset, searchQuery, fetchChipCounts]);
 
   return (
     <div className="min-h-screen bg-[var(--bg)]">
@@ -294,19 +282,6 @@ export default function Dashboard() {
               {CHIP_LABELS[chip]} <span className="text-[var(--muted)]">{chipCounts[chip] ?? 0}</span>
             </button>
           ))}
-
-          <div className="ml-auto flex items-center gap-2">
-            <span className="text-xs text-[var(--muted)]">Perspective</span>
-            <select
-              value={perspective}
-              onChange={(e) => handlePerspectiveChange(e.target.value as Perspective)}
-              className="rounded-md border border-[var(--line)] bg-[var(--panel)] px-2 py-1.5 text-xs text-[var(--text)]"
-            >
-              <option value="all">All</option>
-              <option value="west">West</option>
-              <option value="neutral">Neutral</option>
-            </select>
-          </div>
         </div>
 
         <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -364,7 +339,7 @@ export default function Dashboard() {
         {totalPages > 1 && (
           <div className="mt-8 flex items-center justify-center gap-3">
             <button
-              onClick={() => fetchFeeds(selectedChip, perspective, page - 1, searchQuery, preset)}
+              onClick={() => fetchFeeds(selectedChip, page - 1, searchQuery, preset)}
               disabled={page <= 1}
               className="rounded-md bg-white/5 px-4 py-2 text-xs text-[var(--muted)] ring-1 ring-white/10 transition hover:bg-white/10 hover:text-[var(--text)]/70 disabled:cursor-not-allowed disabled:opacity-30"
             >
@@ -374,7 +349,7 @@ export default function Dashboard() {
               {page} / {totalPages}
             </span>
             <button
-              onClick={() => fetchFeeds(selectedChip, perspective, page + 1, searchQuery, preset)}
+              onClick={() => fetchFeeds(selectedChip, page + 1, searchQuery, preset)}
               disabled={page >= totalPages}
               className="rounded-md bg-white/5 px-4 py-2 text-xs text-[var(--muted)] ring-1 ring-white/10 transition hover:bg-white/10 hover:text-[var(--text)]/70 disabled:cursor-not-allowed disabled:opacity-30"
             >
