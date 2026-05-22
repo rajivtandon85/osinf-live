@@ -1,15 +1,15 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { FeedItem, CategoryId, AlertKeyword, AlertMatch } from "@/types/feed";
-import { CATEGORIES } from "@/lib/sources";
 import { Header } from "@/components/Header";
 import { AlignmentTabs } from "@/components/AlignmentTabs";
 import { SearchBar } from "@/components/SearchBar";
 import { CategoryFilter } from "@/components/CategoryFilter";
 import { FeedTimeline } from "@/components/FeedTimeline";
 import { AlertsPanel } from "@/components/AlertsPanel";
-import { ArticleReader } from "@/components/ArticleReader";
+import { AdSlot } from "@/components/AdSlot";
 
 interface FeedResponse {
   success: boolean;
@@ -44,8 +44,8 @@ export default function Dashboard() {
   const [matches, setMatches] = useState<AlertMatch[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResultCount, setSearchResultCount] = useState<number | null>(null);
-  const [readingItem, setReadingItem] = useState<FeedItem | null>(null);
-  const [fallbackWindow, setFallbackWindow] = useState<Window | null>(null);
+  const [sourceTypeFilter, setSourceTypeFilter] = useState<"all" | "news" | "osint" | "osinf">("all");
+  const router = useRouter();
 
   // We also need total counts for the alignment tabs, so fetch both counts
   const [westCount, setWestCount] = useState(0);
@@ -56,7 +56,8 @@ export default function Dashboard() {
       align: "west" | "neutral" = alignment,
       cat: CategoryId | "all" = selectedCategory,
       pg = 1,
-      q: string = searchQuery
+      q: string = searchQuery,
+      sourceType: "all" | "news" | "osint" | "osinf" = sourceTypeFilter
     ) => {
       setIsLoading(true);
       try {
@@ -67,6 +68,7 @@ export default function Dashboard() {
         });
         if (cat !== "all") params.set("category", cat);
         if (q.trim()) params.set("q", q.trim());
+        if (sourceType !== "all") params.set("sourceType", sourceType);
         const res = await fetch(`/api/feeds?${params}`);
         const json: FeedResponse = await res.json();
         if (json.success) {
@@ -80,7 +82,7 @@ export default function Dashboard() {
         setIsLoading(false);
       }
     },
-    [alignment, selectedCategory, searchQuery]
+    [alignment, selectedCategory, searchQuery, sourceTypeFilter]
   );
 
   const fetchTabCounts = useCallback(async () => {
@@ -112,7 +114,7 @@ export default function Dashboard() {
     try {
       await fetch("/api/feeds/refresh", { method: "POST" });
       await Promise.all([
-        fetchFeeds(alignment, selectedCategory, 1, searchQuery),
+        fetchFeeds(alignment, selectedCategory, 1, searchQuery, sourceTypeFilter),
         fetchTabCounts(),
         fetchAlerts(),
       ]);
@@ -126,17 +128,28 @@ export default function Dashboard() {
     setSelectedCategory("all");
     setSearchQuery("");
     setSearchResultCount(null);
-    fetchFeeds(a, "all", 1, "");
+    setSourceTypeFilter("all");
+    fetchFeeds(a, "all", 1, "", "all");
   };
 
   const handleCategoryChange = (cat: CategoryId | "all") => {
     setSelectedCategory(cat);
-    fetchFeeds(alignment, cat, 1, searchQuery);
+    fetchFeeds(alignment, cat, 1, searchQuery, sourceTypeFilter);
   };
 
   const handleSearch = (q: string) => {
     setSearchQuery(q);
-    fetchFeeds(alignment, selectedCategory, 1, q);
+    fetchFeeds(alignment, selectedCategory, 1, q, sourceTypeFilter);
+  };
+
+  const handleSourceTypeChange = (next: "all" | "news" | "osint" | "osinf") => {
+    setSourceTypeFilter(next);
+    fetchFeeds(alignment, selectedCategory, 1, searchQuery, next);
+  };
+
+  const handleRead = (item: FeedItem) => {
+    const from = encodeURIComponent(window.location.pathname + window.location.search);
+    router.push(`/read/${item.id}?from=${from}`);
   };
 
   const handleAddKeyword = async (keyword: string, categories?: CategoryId[]) => {
@@ -171,6 +184,14 @@ export default function Dashboard() {
     [matches]
   );
 
+  const sourceTypeCounts = useMemo(() => {
+    const counts = { all: items.length, news: 0, osint: 0, osinf: 0 };
+    for (const item of items) {
+      counts[item.sourceType]++;
+    }
+    return counts;
+  }, [items]);
+
   useEffect(() => {
     fetchFeeds("neutral", "all", 1, "");
     fetchTabCounts();
@@ -185,7 +206,7 @@ export default function Dashboard() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f]">
+    <div className="min-h-screen bg-[var(--bg)]">
       <Header
         lastRefreshed={lastRefreshed}
         onRefresh={handleRefresh}
@@ -203,6 +224,10 @@ export default function Dashboard() {
       />
 
       <main className="mx-auto max-w-7xl px-4 py-6">
+        <div className="mb-5">
+          <AdSlot label="Top Banner Ad (728x90)" className="min-h-[92px]" />
+        </div>
+
         {/* Search bar */}
         <div className="mb-4">
           <SearchBar
@@ -211,6 +236,28 @@ export default function Dashboard() {
             resultCount={searchResultCount}
             isSearching={isLoading && searchQuery.trim().length > 0}
           />
+        </div>
+
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          {([
+            ["all", "All"],
+            ["osint", "OSINT"],
+            ["osinf", "OSINF"],
+            ["news", "News"],
+          ] as const).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => handleSourceTypeChange(key)}
+              className={`rounded-full px-3 py-1.5 text-xs ring-1 transition ${
+                sourceTypeFilter === key
+                  ? "bg-cyan-500/15 text-cyan-300 ring-cyan-400/35"
+                  : "bg-white/[0.02] text-[var(--text)]/50 ring-white/10 hover:text-[var(--text)]/75"
+              }`}
+            >
+              {label} <span className="text-[var(--muted)]">{sourceTypeCounts[key]}</span>
+            </button>
+          ))}
+          <span className="ml-auto text-[11px] text-[var(--muted)]">Tip: press `/` to search fast</span>
         </div>
 
         {/* Category filter */}
@@ -223,31 +270,36 @@ export default function Dashboard() {
         </div>
 
         {/* Feed grid */}
-        <FeedTimeline
-          items={items}
-          alertItemIds={alertItemIds}
-          alertKeywordMap={alertKeywordMap}
-          isLoading={isLoading}
-          onRead={(item, win) => { setReadingItem(item); setFallbackWindow(win); }}
-        />
+        <div className="grid gap-5 lg:grid-cols-[1fr_280px]">
+          <FeedTimeline
+            items={items}
+            alertItemIds={alertItemIds}
+            alertKeywordMap={alertKeywordMap}
+            isLoading={isLoading}
+            onRead={handleRead}
+          />
+          <aside className="space-y-4">
+            <AdSlot label="Right Rail Ad (300x600)" className="sticky top-24" />
+          </aside>
+        </div>
 
         {/* Pagination */}
         {totalPages > 1 && (
           <div className="mt-8 flex items-center justify-center gap-3">
             <button
-              onClick={() => fetchFeeds(alignment, selectedCategory, page - 1, searchQuery)}
+              onClick={() => fetchFeeds(alignment, selectedCategory, page - 1, searchQuery, sourceTypeFilter)}
               disabled={page <= 1}
-              className="rounded-md bg-white/5 px-4 py-2 text-xs text-white/40 ring-1 ring-white/10 transition hover:bg-white/10 hover:text-white/70 disabled:cursor-not-allowed disabled:opacity-30"
+              className="rounded-md bg-white/5 px-4 py-2 text-xs text-[var(--muted)] ring-1 ring-white/10 transition hover:bg-white/10 hover:text-[var(--text)]/70 disabled:cursor-not-allowed disabled:opacity-30"
             >
               ← Prev
             </button>
-            <span className="text-xs text-white/25">
+            <span className="text-xs text-[var(--muted)]">
               {page} / {totalPages}
             </span>
             <button
-              onClick={() => fetchFeeds(alignment, selectedCategory, page + 1, searchQuery)}
+              onClick={() => fetchFeeds(alignment, selectedCategory, page + 1, searchQuery, sourceTypeFilter)}
               disabled={page >= totalPages}
-              className="rounded-md bg-white/5 px-4 py-2 text-xs text-white/40 ring-1 ring-white/10 transition hover:bg-white/10 hover:text-white/70 disabled:cursor-not-allowed disabled:opacity-30"
+              className="rounded-md bg-white/5 px-4 py-2 text-xs text-[var(--muted)] ring-1 ring-white/10 transition hover:bg-white/10 hover:text-[var(--text)]/70 disabled:cursor-not-allowed disabled:opacity-30"
             >
               Next →
             </button>
@@ -262,15 +314,7 @@ export default function Dashboard() {
           onAddKeyword={handleAddKeyword}
           onDeleteKeyword={handleDeleteKeyword}
           onClose={() => setShowAlerts(false)}
-          onRead={(item, win) => { setReadingItem(item); setFallbackWindow(win); }}
-        />
-      )}
-
-      {readingItem && (
-        <ArticleReader
-          item={readingItem}
-          fallbackWindow={fallbackWindow}
-          onClose={() => { setReadingItem(null); setFallbackWindow(null); }}
+          onRead={handleRead}
         />
       )}
     </div>

@@ -1,6 +1,5 @@
 "use client";
 
-import { FeedSource } from "@/types/feed";
 import { getSourcesForAlignment } from "@/lib/sources";
 import { useMemo, useState } from "react";
 
@@ -44,7 +43,7 @@ export function AlignmentTabs({
                     ? tab.id === "west"
                       ? "bg-blue-500/8 text-blue-300"
                       : "bg-emerald-500/8 text-emerald-300"
-                    : "text-white/30 hover:text-white/50 hover:bg-white/[0.02]"
+                    : "text-[var(--muted)] hover:text-[var(--text)]/50 hover:bg-white/[0.02]"
                 }
               `}
             >
@@ -56,13 +55,13 @@ export function AlignmentTabs({
                       ? tab.id === "west"
                         ? "bg-blue-500/20 text-blue-400"
                         : "bg-emerald-500/20 text-emerald-400"
-                      : "bg-white/5 text-white/25"
+                      : "bg-white/5 text-[var(--muted)]"
                   }`}
                 >
                   {counts[tab.id]}
                 </span>
               </div>
-              <p className="mt-0.5 text-[10px] text-white/20">{tab.sublabel}</p>
+              <p className="mt-0.5 text-[10px] text-[var(--muted)]">{tab.sublabel}</p>
               {isSelected && (
                 <div
                   className={`absolute bottom-0 left-0 right-0 h-0.5 ${
@@ -79,7 +78,7 @@ export function AlignmentTabs({
       <div className="mx-auto max-w-7xl px-4 py-2">
         <button
           onClick={() => setShowSources(!showSources)}
-          className="flex items-center gap-1.5 text-[11px] text-white/25 transition hover:text-white/40"
+          className="flex items-center gap-1.5 text-[11px] text-[var(--muted)] transition hover:text-[var(--muted)]"
         >
           <span className={`transition-transform ${showSources ? "rotate-90" : ""}`}>
             ▸
@@ -103,6 +102,11 @@ export function AlignmentTabs({
                   title={`${s.description}${s.country ? ` (${s.country})` : ""}`}
                 >
                   {s.name}
+                  {s.sourceType && s.sourceType !== "news" && (
+                    <span className="ml-1 rounded bg-white/10 px-1 py-0 text-[9px] uppercase text-[var(--text)]/60">
+                      {s.sourceType}
+                    </span>
+                  )}
                   {s.country && (
                     <span className="ml-1 text-white/15">· {s.country}</span>
                   )}

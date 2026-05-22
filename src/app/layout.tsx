@@ -1,11 +1,5 @@
 import type { Metadata } from "next";
-import { Geist_Mono } from "next/font/google";
 import "./globals.css";
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "OSINF — Open Source Intelligence Feed",
@@ -18,8 +12,22 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
-      <body className={`${geistMono.variable} font-mono antialiased bg-[#0a0a0f] text-white min-h-screen`}>
+    <html lang="en" suppressHydrationWarning>
+      <body className="font-mono antialiased min-h-screen">
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(() => {
+  try {
+    const saved = localStorage.getItem('osinf-theme');
+    const theme = saved === 'light' || saved === 'dark'
+      ? saved
+      : (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    document.documentElement.classList.remove('light', 'dark');
+    document.documentElement.classList.add(theme);
+  } catch {}
+})();`,
+          }}
+        />
         {children}
       </body>
     </html>

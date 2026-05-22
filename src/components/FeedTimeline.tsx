@@ -8,7 +8,7 @@ interface FeedTimelineProps {
   alertItemIds: Set<string>;
   alertKeywordMap: Record<string, string>;
   isLoading: boolean;
-  onRead: (item: FeedItem, fallbackWindow: Window | null) => void;
+  onRead: (item: FeedItem) => void;
 }
 
 export function FeedTimeline({
@@ -35,7 +35,7 @@ export function FeedTimeline({
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
         <div className="text-4xl opacity-20">◈</div>
-        <p className="text-sm text-white/30">No items found. Try refreshing.</p>
+        <p className="text-sm text-[var(--muted)]">No items found. Try refreshing.</p>
       </div>
     );
   }

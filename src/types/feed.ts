@@ -1,4 +1,5 @@
 export type Alignment = "west" | "neutral" | "both";
+export type SourceType = "news" | "osint" | "osinf";
 
 export type CategoryId =
   | "geopolitical"
@@ -23,6 +24,7 @@ export interface FeedSource {
   url: string;
   category: CategoryId;
   alignment: Alignment;
+  sourceType?: SourceType;
   country?: string;
   description?: string;
 }
@@ -34,6 +36,7 @@ export interface FeedItem {
   url: string;
   sourceId: string;
   sourceName: string;
+  sourceType: SourceType;
   category: CategoryId;
   alignment: Alignment;
   publishedAt: string;

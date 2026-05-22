@@ -20,6 +20,8 @@ interface ArticleReaderProps {
   onClose: () => void;
 }
 
+const SKELETON_WIDTHS = [92, 76, 84, 97, 72, 90, 80, 88];
+
 export function ArticleReader({ item, fallbackWindow, onClose }: ArticleReaderProps) {
   const [article, setArticle] = useState<ArticleData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -151,11 +153,11 @@ export function ArticleReader({ item, fallbackWindow, onClose }: ArticleReaderPr
               <div className="h-8 w-3/4 rounded bg-white/5" />
               <div className="h-4 w-1/3 rounded bg-white/5" />
               <div className="mt-8 space-y-3">
-                {Array.from({ length: 8 }).map((_, i) => (
+                {SKELETON_WIDTHS.map((w, i) => (
                   <div
                     key={i}
                     className="h-4 rounded bg-white/[0.03]"
-                    style={{ width: `${70 + Math.random() * 30}%` }}
+                    style={{ width: `${w}%` }}
                   />
                 ))}
               </div>

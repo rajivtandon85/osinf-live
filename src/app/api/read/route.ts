@@ -7,6 +7,7 @@ import { redis } from "@/lib/redis";
 export const dynamic = "force-dynamic";
 
 const ARTICLE_CACHE_TTL = 60 * 60; // 1 hour
+const MIN_CONTENT_LENGTH = 100;
 
 function cacheKey(url: string): string {
   const hash = crypto.createHash("sha1").update(url).digest("hex").slice(0, 20);
@@ -30,6 +31,91 @@ function absolutifyImages(html: string, baseUrl: string): string {
   } catch {
     return html;
   }
+}
+
+function hasChallengeSignals(html: string): boolean {
+  return /just a moment|verify you are human|captcha|cloudflare|access denied|forbidden/i.test(html);
+}
+
+function sanitizeText(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
+}
+
+function buildParagraphHtml(text: string): string {
+  const lines = sanitizeText(text)
+    .split(/\n{2,}|\.(?=\s+[A-Z])/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  if (!lines.length) return "";
+  return lines.map((line) => `<p>${line}.</p>`).join("\n");
+}
+
+function extractJsonLdArticle(document: Document): { content?: string; byline?: string } {
+  const scripts = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
+
+  for (const script of scripts) {
+    const raw = script.textContent?.trim();
+    if (!raw) continue;
+
+    try {
+      const parsed = JSON.parse(raw);
+      const entries = Array.isArray(parsed)
+        ? parsed
+        : Array.isArray(parsed?.["@graph"])
+          ? parsed["@graph"]
+          : [parsed];
+
+      for (const entry of entries) {
+        const type = entry?.["@type"];
+        const types = Array.isArray(type) ? type : [type];
+        if (!types.some((t) => typeof t === "string" && /article|newsarticle|reportage/i.test(t))) {
+          continue;
+        }
+
+        const articleBody = typeof entry?.articleBody === "string" ? entry.articleBody : "";
+        const byline =
+          typeof entry?.author?.name === "string"
+            ? entry.author.name
+            : Array.isArray(entry?.author)
+              ? entry.author.map((a: { name?: string }) => a?.name).filter(Boolean).join(", ")
+              : "";
+
+        if (articleBody.length >= MIN_CONTENT_LENGTH) {
+          return { content: buildParagraphHtml(articleBody), byline };
+        }
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return {};
+}
+
+function extractFromDom(document: Document): string {
+  const selectors = [
+    "article",
+    "main article",
+    "[itemprop='articleBody']",
+    ".story__content",
+    ".article-body",
+    ".entry-content",
+  ];
+
+  for (const selector of selectors) {
+    const node = document.querySelector(selector);
+    if (!node) continue;
+    const paragraphs = Array.from(node.querySelectorAll("p"))
+      .map((p) => sanitizeText(p.textContent || ""))
+      .filter((p) => p.length > 0);
+    const joined = paragraphs.join("\n\n");
+    if (joined.length >= MIN_CONTENT_LENGTH) {
+      return paragraphs.map((p) => `<p>${p}</p>`).join("\n");
+    }
+  }
+
+  return "";
 }
 
 export async function GET(req: NextRequest) {
@@ -63,6 +149,13 @@ export async function GET(req: NextRequest) {
     });
 
     if (!response.ok) {
+      const maybeHtml = await response.text().catch(() => "");
+      if ((response.status === 403 || response.status === 429) && hasChallengeSignals(maybeHtml)) {
+        return NextResponse.json(
+          { success: false, error: "Source blocked extraction", code: "SOURCE_BLOCKED" },
+          { status: 403 }
+        );
+      }
       return NextResponse.json(
         { success: false, error: `Fetch failed: ${response.status}` },
         { status: 502 }
@@ -71,25 +164,56 @@ export async function GET(req: NextRequest) {
 
     const html = await response.text();
 
+    if (hasChallengeSignals(html)) {
+      return NextResponse.json(
+        { success: false, error: "Source blocked extraction", code: "SOURCE_BLOCKED" },
+        { status: 403 }
+      );
+    }
+
     // Parse with JSDOM + Readability
     const dom = new JSDOM(html, { url });
-    const reader = new Readability(dom.window.document);
+    const reader = new Readability(dom.window.document, {
+      keepClasses: false,
+    });
     const article = reader.parse();
 
-    if (!article || !article.content || article.content.length < 100) {
+    let content = article?.content || "";
+    let byline = article?.byline || "";
+    let method = "readability";
+
+    if (!content || content.length < MIN_CONTENT_LENGTH) {
+      const jsonLd = extractJsonLdArticle(dom.window.document);
+      if (jsonLd.content && jsonLd.content.length >= MIN_CONTENT_LENGTH) {
+        content = jsonLd.content;
+        byline = byline || jsonLd.byline || "";
+        method = "jsonld";
+      }
+    }
+
+    if (!content || content.length < MIN_CONTENT_LENGTH) {
+      const domContent = extractFromDom(dom.window.document);
+      if (domContent && domContent.length >= MIN_CONTENT_LENGTH) {
+        content = domContent;
+        method = "dom";
+      }
+    }
+
+    if (!content || content.length < MIN_CONTENT_LENGTH) {
       return NextResponse.json(
-        { success: false, error: "Could not extract article content" },
+        { success: false, error: "Could not extract article content", code: "EXTRACTION_EMPTY" },
         { status: 422 }
       );
     }
 
     const data = {
-      title: article.title || "",
-      content: absolutifyImages(article.content, url),
-      byline: article.byline || "",
-      siteName: article.siteName || "",
-      excerpt: article.excerpt || "",
-      length: article.length || 0,
+      title: article?.title || "",
+      content: absolutifyImages(content, url),
+      byline,
+      siteName: article?.siteName || "",
+      excerpt: article?.excerpt || "",
+      length: article?.length || content.length,
+      method,
     };
 
     // Cache the result

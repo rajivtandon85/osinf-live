@@ -1,6 +1,6 @@
 "use client";
 
-import { Category, CategoryId } from "@/types/feed";
+import { CategoryId } from "@/types/feed";
 import { CATEGORIES } from "@/lib/sources";
 
 interface CategoryFilterProps {
@@ -13,7 +13,7 @@ const ALL_OPTION = {
   id: "all" as const,
   label: "All Sources",
   icon: "◈",
-  color: "text-white/70",
+  color: "text-[var(--text)]/70",
   bgColor: "bg-white/5",
   borderColor: "border-white/10",
 };
@@ -37,7 +37,7 @@ export function CategoryFilter({ selected, onSelect, counts }: CategoryFilterPro
               ${
                 isSelected
                   ? `${cat.color} ${cat.bgColor} ${cat.borderColor} ring-current/50`
-                  : "text-white/40 bg-transparent border-transparent ring-white/10 hover:text-white/60 hover:ring-white/20"
+                  : "text-[var(--muted)] bg-transparent border-transparent ring-white/10 hover:text-[var(--text)]/60 hover:ring-white/20"
               }
             `}
           >

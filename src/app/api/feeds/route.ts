@@ -7,6 +7,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const category = searchParams.get("category");
   const alignment = searchParams.get("alignment") as "west" | "neutral" | null;
+  const sourceType = searchParams.get("sourceType") as "news" | "osint" | "osinf" | null;
   const query = searchParams.get("q")?.trim().toLowerCase();
   const page = parseInt(searchParams.get("page") || "1", 10);
   const limit = parseInt(searchParams.get("limit") || "30", 10);
@@ -22,6 +23,10 @@ export async function GET(req: NextRequest) {
 
     if (alignment) {
       items = items.filter((item) => item.alignment === alignment);
+    }
+
+    if (sourceType) {
+      items = items.filter((item) => item.sourceType === sourceType);
     }
 
     if (category && category !== "all") {

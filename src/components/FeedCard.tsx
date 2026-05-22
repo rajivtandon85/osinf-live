@@ -8,7 +8,7 @@ interface FeedCardProps {
   item: FeedItem;
   isAlert?: boolean;
   alertKeyword?: string;
-  onRead: (item: FeedItem, fallbackWindow: Window | null) => void;
+  onRead: (item: FeedItem) => void;
 }
 
 export function FeedCard({ item, isAlert, alertKeyword, onRead }: FeedCardProps) {
@@ -22,14 +22,12 @@ export function FeedCard({ item, isAlert, alertKeyword, onRead }: FeedCardProps)
       role="button"
       tabIndex={0}
       onClick={() => {
-        const win = window.open("about:blank", "_blank");
-        onRead(item, win);
+        onRead(item);
       }}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          const win = window.open("about:blank", "_blank");
-          onRead(item, win);
+          onRead(item);
         }
       }}
       className={`
@@ -57,18 +55,29 @@ export function FeedCard({ item, isAlert, alertKeyword, onRead }: FeedCardProps)
           <span>{category.icon}</span>
           <span>{category.label}</span>
         </span>
-        <span className="text-[11px] text-white/30">·</span>
-        <span className="text-[11px] font-medium text-white/40 truncate max-w-[120px]">
+        <span className="text-[11px] text-[var(--muted)]">·</span>
+        <span
+          className={`rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wide ring-1 ${
+            item.sourceType === "osint"
+              ? "bg-cyan-500/10 text-cyan-300 ring-cyan-500/30"
+              : item.sourceType === "osinf"
+                ? "bg-amber-500/10 text-amber-300 ring-amber-500/30"
+                : "bg-white/5 text-[var(--muted)] ring-white/10"
+          }`}
+        >
+          {item.sourceType}
+        </span>
+        <span className="text-[11px] font-medium text-[var(--muted)] truncate max-w-[120px]">
           {item.sourceName}
         </span>
         <span className="ml-auto flex items-center gap-2 shrink-0">
-          <span className="text-[11px] text-white/25">{timeAgo}</span>
+          <span className="text-[11px] text-[var(--muted)]">{timeAgo}</span>
           <a
             href={item.url}
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
-            className="rounded p-0.5 text-white/15 transition hover:text-white/50"
+            className="rounded p-0.5 text-white/15 transition hover:text-[var(--text)]/50"
             title="Open in new tab"
           >
             <svg
@@ -104,11 +113,11 @@ export function FeedCard({ item, isAlert, alertKeyword, onRead }: FeedCardProps)
           </div>
         )}
         <div className="flex flex-col gap-1 min-w-0">
-          <h3 className="text-sm font-medium leading-snug text-white/80 group-hover:text-white/95 line-clamp-2 transition-colors">
+          <h3 className="text-sm font-medium leading-snug text-[var(--text)]/80 group-hover:text-[var(--text)] line-clamp-2 transition-colors">
             {item.title}
           </h3>
           {item.summary && (
-            <p className="text-xs leading-relaxed text-white/35 line-clamp-2">
+            <p className="text-xs leading-relaxed text-[var(--muted)] line-clamp-2">
               {item.summary}
             </p>
           )}
@@ -121,7 +130,7 @@ export function FeedCard({ item, isAlert, alertKeyword, onRead }: FeedCardProps)
           {item.tags.filter((t) => typeof t === "string").slice(0, 4).map((tag) => (
             <span
               key={tag}
-              className="rounded px-1.5 py-0.5 text-[10px] text-white/25 bg-white/5"
+              className="rounded px-1.5 py-0.5 text-[10px] text-[var(--muted)] bg-white/5"
             >
               {tag}
             </span>

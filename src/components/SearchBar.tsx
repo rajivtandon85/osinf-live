@@ -58,10 +58,10 @@ export function SearchBar({ value, onChange, resultCount, isSearching }: SearchB
     <div className="relative">
       <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
         {isSearching ? (
-          <span className="animate-spin text-xs text-white/30">↻</span>
+          <span className="animate-spin text-xs text-[var(--muted)]">↻</span>
         ) : (
           <svg
-            className="h-3.5 w-3.5 text-white/25"
+            className="h-3.5 w-3.5 text-[var(--muted)]"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -82,19 +82,19 @@ export function SearchBar({ value, onChange, resultCount, isSearching }: SearchB
         value={localValue}
         onChange={(e) => handleChange(e.target.value)}
         placeholder='Search feeds… e.g. "Iran war", "ransomware", "Israel"'
-        className="w-full rounded-lg bg-white/[0.03] py-2.5 pl-9 pr-20 text-sm text-white/80 placeholder-white/20 ring-1 ring-white/8 outline-none transition focus:bg-white/[0.05] focus:ring-white/20"
+        className="w-full rounded-lg bg-white/[0.03] py-2.5 pl-9 pr-20 text-sm text-[var(--text)]/80 placeholder-[var(--muted)] ring-1 ring-white/8 outline-none transition focus:bg-white/[0.05] focus:ring-white/20"
       />
 
       <div className="absolute inset-y-0 right-0 flex items-center gap-2 pr-3">
         {resultCount !== null && localValue.trim() && (
-          <span className="text-[11px] text-white/25">
+          <span className="text-[11px] text-[var(--muted)]">
             {resultCount} result{resultCount !== 1 ? "s" : ""}
           </span>
         )}
         {localValue && (
           <button
             onClick={handleClear}
-            className="rounded p-0.5 text-white/25 transition hover:bg-white/5 hover:text-white/60"
+            className="rounded p-0.5 text-[var(--muted)] transition hover:bg-white/5 hover:text-[var(--text)]/60"
           >
             <svg
               className="h-3.5 w-3.5"
@@ -112,7 +112,7 @@ export function SearchBar({ value, onChange, resultCount, isSearching }: SearchB
           </button>
         )}
         {!localValue && (
-          <kbd className="hidden rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-white/20 ring-1 ring-white/10 sm:inline-block">
+          <kbd className="hidden rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-[var(--muted)] ring-1 ring-white/10 sm:inline-block">
             /
           </kbd>
         )}

@@ -118,6 +118,28 @@ function getHostname(url: string): string {
   }
 }
 
+const LOGIN_GATED_HOSTS = new Set([
+  "scmp.com",
+  "www.scmp.com",
+]);
+
+function isLikelyLoginGated(link: string): boolean {
+  const host = getHostname(link);
+  if (!host) return false;
+
+  if (LOGIN_GATED_HOSTS.has(host)) return true;
+
+  // Generic guard for explicit auth/paywall paths.
+  const lowered = link.toLowerCase();
+  return (
+    lowered.includes("/login") ||
+    lowered.includes("/sign-in") ||
+    lowered.includes("/signin") ||
+    lowered.includes("/subscribe") ||
+    lowered.includes("/paywall")
+  );
+}
+
 function isSponsored(item: { link?: string; isoDate?: string; pubDate?: string }, sourceUrl: string): boolean {
   if (!item.isoDate && !item.pubDate) return true;
 
@@ -137,6 +159,10 @@ async function fetchSource(source: FeedSource): Promise<FeedItem[]> {
     const feed = await parser.parseURL(source.url);
     return (feed.items || []).slice(0, 25)
       .filter((item) => !isSponsored(item, source.url))
+      .filter((item) => {
+        const link = item.link || item.guid || "";
+        return !isLikelyLoginGated(link);
+      })
       .map((item) => {
         const rawItem = item as unknown as Record<string, unknown>;
         const link = item.link || item.guid || source.url;
@@ -151,6 +177,7 @@ async function fetchSource(source: FeedSource): Promise<FeedItem[]> {
           url: link,
           sourceId: source.id,
           sourceName: source.name,
+          sourceType: source.sourceType ?? "news",
           category: source.category,
           alignment: source.alignment,
           publishedAt:
