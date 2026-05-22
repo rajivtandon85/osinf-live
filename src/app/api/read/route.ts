@@ -33,8 +33,31 @@ function absolutifyImages(html: string, baseUrl: string): string {
   }
 }
 
-function hasChallengeSignals(html: string): boolean {
-  return /just a moment|verify you are human|captcha|cloudflare|access denied|forbidden/i.test(html);
+function hasChallengeSignals(html: string, status?: number): boolean {
+  const titleMatch = html.match(/<title[^>]*>(.*?)<\/title>/i);
+  const title = (titleMatch?.[1] || "").toLowerCase();
+  const body = html.toLowerCase();
+
+  const strongTitleSignal =
+    title.includes("just a moment") ||
+    title.includes("attention required") ||
+    title.includes("verify you are human") ||
+    title.includes("access denied");
+
+  const strongBodySignal =
+    body.includes("cf-challenge") ||
+    body.includes("g-recaptcha") ||
+    body.includes("hcaptcha") ||
+    body.includes("/cdn-cgi/challenge") ||
+    body.includes("why do i have to complete a captcha") ||
+    body.includes("please enable javascript and cookies to continue");
+
+  if (status === 403 || status === 429) {
+    return strongTitleSignal || strongBodySignal;
+  }
+
+  // For HTTP 200, require both a challenge-like title and a strong body marker.
+  return strongTitleSignal && strongBodySignal;
 }
 
 function sanitizeText(text: string): string {
@@ -150,7 +173,7 @@ export async function GET(req: NextRequest) {
 
     if (!response.ok) {
       const maybeHtml = await response.text().catch(() => "");
-      if ((response.status === 403 || response.status === 429) && hasChallengeSignals(maybeHtml)) {
+      if ((response.status === 403 || response.status === 429) && hasChallengeSignals(maybeHtml, response.status)) {
         return NextResponse.json(
           { success: false, error: "Source blocked extraction", code: "SOURCE_BLOCKED" },
           { status: 403 }
@@ -164,7 +187,7 @@ export async function GET(req: NextRequest) {
 
     const html = await response.text();
 
-    if (hasChallengeSignals(html)) {
+    if (hasChallengeSignals(html, response.status)) {
       return NextResponse.json(
         { success: false, error: "Source blocked extraction", code: "SOURCE_BLOCKED" },
         { status: 403 }

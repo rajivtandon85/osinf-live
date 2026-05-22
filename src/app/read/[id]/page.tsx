@@ -35,7 +35,7 @@ export default function ReaderPage() {
   const [article, setArticle] = useState<ArticleData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [redirecting, setRedirecting] = useState(false);
+  const [blocked, setBlocked] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -60,8 +60,15 @@ export default function ReaderPage() {
         if (readJson.success && readJson.data?.content) {
           setArticle(readJson.data);
         } else if (readJson.code === "SOURCE_BLOCKED") {
-          setRedirecting(true);
-          window.location.href = feedItem.url;
+          setBlocked(true);
+          setArticle({
+            title: feedItem.title,
+            content: `<p>${feedItem.summary || "This publisher blocked full extraction in-app."}</p>`,
+            byline: "",
+            siteName: feedItem.sourceName,
+            method: "feed-summary",
+          });
+          setError("Publisher protection blocked full extraction. You can still open original below.");
         } else {
           setArticle({
             title: feedItem.title,
@@ -159,9 +166,9 @@ export default function ReaderPage() {
                 </p>
               )}
 
-              {redirecting ? (
+              {blocked ? (
                 <div className="rounded-lg border border-amber-500/35 bg-amber-500/10 p-4 text-sm text-amber-300">
-                  This publisher blocks in-app extraction. Redirecting to original article.
+                  Publisher blocked full article extraction. Showing feed summary in-app.
                 </div>
               ) : error ? (
                 <div className="rounded-lg border border-amber-500/35 bg-amber-500/10 p-4 text-sm text-amber-300">
