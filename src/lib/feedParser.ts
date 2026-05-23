@@ -190,6 +190,7 @@ async function fetchSource(source: FeedSource): Promise<FeedItem[]> {
           sourceId: source.id,
           sourceName: source.name,
           sourceType: source.sourceType ?? "news",
+          country: source.country,
           category: source.category,
           alignment: source.alignment,
           publishedAt,

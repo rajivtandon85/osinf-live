@@ -6,7 +6,6 @@ import { formatDistanceToNow } from "date-fns";
 import { FeedItem } from "@/types/feed";
 import { CATEGORIES } from "@/lib/sources";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { AdSlot } from "@/components/AdSlot";
 
 interface ArticleData {
   title: string;
@@ -175,7 +174,7 @@ export default function ReaderPage() {
         </div>
       </header>
 
-      <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 lg:grid-cols-[1fr_280px]">
+      <main className="mx-auto w-full max-w-4xl px-4 py-6">
         <article className="rounded-2xl border border-[var(--line)] bg-[var(--panel)] p-6 sm:p-8">
           {loading && (
             <div className="space-y-4 animate-pulse">
@@ -233,16 +232,9 @@ export default function ReaderPage() {
                 </div>
               ) : null}
 
-              <div className="mt-8">
-                <AdSlot label="In-Article Ad (300x250)" />
-              </div>
             </>
           )}
         </article>
-
-        <aside className="space-y-4">
-          <AdSlot label="Sidebar Ad (300x600)" className="sticky top-24" />
-        </aside>
       </main>
     </div>
   );

@@ -8,7 +8,6 @@ import { SearchBar } from "@/components/SearchBar";
 import { CategoryFilter } from "@/components/CategoryFilter";
 import { FeedTimeline } from "@/components/FeedTimeline";
 import { AlertsPanel } from "@/components/AlertsPanel";
-import { AdSlot } from "@/components/AdSlot";
 
 interface FeedResponse {
   success: boolean;
@@ -31,6 +30,7 @@ interface AlertsResponse {
 
 type Preset = "none" | "threat-intel" | "conflict-watch";
 type PrimaryChip = "all" | CategoryId | "osint" | "osinf";
+type LocalCountry = "" | "Philippines" | "India" | "Japan" | "United States";
 
 const CHIP_LABELS: Record<PrimaryChip, string> = {
   all: "All",
@@ -72,6 +72,7 @@ export default function Dashboard() {
   const [keywords, setKeywords] = useState<AlertKeyword[]>([]);
   const [matches, setMatches] = useState<AlertMatch[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [localCountry, setLocalCountry] = useState<LocalCountry>("");
   const [searchResultCount, setSearchResultCount] = useState<number | null>(null);
   const [chipCounts, setChipCounts] = useState<Record<PrimaryChip, number>>({
     all: 0,
@@ -98,7 +99,8 @@ export default function Dashboard() {
       chip: PrimaryChip = selectedChip,
       pg = 1,
       q: string = searchQuery,
-      presetFilter: Preset = preset
+      presetFilter: Preset = preset,
+      localCountryFilter: LocalCountry = localCountry
     ) => {
       setIsLoading(true);
       try {
@@ -109,6 +111,7 @@ export default function Dashboard() {
         if (sourceType !== "all") params.set("sourceType", sourceType);
         if (q.trim()) params.set("q", q.trim());
         if (presetFilter !== "none") params.set("preset", presetFilter);
+        if (localCountryFilter) params.set("localCountry", localCountryFilter);
 
         const res = await fetch(`/api/feeds?${params}`);
         const json: FeedResponse = await res.json();
@@ -125,7 +128,7 @@ export default function Dashboard() {
         setIsLoading(false);
       }
     },
-    [selectedChip, searchQuery, preset, resolveFilters]
+    [selectedChip, searchQuery, preset, localCountry, resolveFilters]
   );
 
   const fetchChipCounts = useCallback(async () => {
@@ -142,6 +145,7 @@ export default function Dashboard() {
           if (category !== "all") params.set("category", category);
           if (sourceType !== "all") params.set("sourceType", sourceType);
           if (searchQuery.trim()) params.set("q", searchQuery.trim());
+          if (localCountry) params.set("localCountry", localCountry);
           const res = await fetch(`/api/feeds?${params}`);
           const json: FeedResponse = await res.json();
           return [chip, json.success ? json.data.total : 0] as const;
@@ -152,7 +156,7 @@ export default function Dashboard() {
     } catch {
       // keep last known counts
     }
-  }, [items.length, preset, resolveFilters, searchQuery]);
+  }, [items.length, preset, resolveFilters, searchQuery, localCountry]);
 
   const fetchAlerts = useCallback(async () => {
     const res = await fetch("/api/alerts");
@@ -188,6 +192,12 @@ export default function Dashboard() {
     setSearchQuery(q);
     setSelectedCategory("all");
     fetchFeeds(selectedChip, 1, q, preset);
+  };
+
+  const handleLocalCountryChange = (next: LocalCountry) => {
+    setLocalCountry(next);
+    setSelectedCategory("all");
+    fetchFeeds(selectedChip, 1, searchQuery, preset, next);
   };
   const handlePreset = (next: Preset) => {
     setPreset(next);
@@ -246,7 +256,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchChipCounts();
-  }, [preset, searchQuery, fetchChipCounts]);
+  }, [preset, searchQuery, localCountry, fetchChipCounts]);
 
   return (
     <div className="min-h-screen bg-[var(--bg)]">
@@ -284,6 +294,22 @@ export default function Dashboard() {
           ))}
         </div>
 
+        <div className="mb-4 flex items-center gap-2">
+          <span className="text-xs text-[var(--muted)]">Local Focus</span>
+          <select
+            value={localCountry}
+            onChange={(e) => handleLocalCountryChange(e.target.value as LocalCountry)}
+            className="rounded-md border border-[var(--line)] bg-[var(--panel)] px-2 py-1.5 text-xs text-[var(--text)]"
+          >
+            <option value="">Global</option>
+            <option value="Philippines">Philippines</option>
+            <option value="India">India</option>
+            <option value="Japan">Japan</option>
+            <option value="United States">United States</option>
+          </select>
+          {localCountry && <span className="text-xs text-[var(--muted)]">Showing {localCountry}-first ranking</span>}
+        </div>
+
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <button
             onClick={() => handlePreset("threat-intel")}
@@ -319,22 +345,13 @@ export default function Dashboard() {
           <CategoryFilter selected={selectedCategory} onSelect={setSelectedCategory} counts={categoryCounts} />
         </div>
 
-        <div className="mb-5">
-          <AdSlot label="Top Banner Ad (728x90)" className="min-h-[92px]" />
-        </div>
-
-        <div className="grid gap-5 lg:grid-cols-[1fr_280px]">
-          <FeedTimeline
-            items={filteredItems}
-            alertItemIds={alertItemIds}
-            alertKeywordMap={alertKeywordMap}
-            isLoading={isLoading}
-            onRead={handleRead}
-          />
-          <aside className="space-y-4">
-            <AdSlot label="Right Rail Ad (300x600)" className="sticky top-24" />
-          </aside>
-        </div>
+        <FeedTimeline
+          items={filteredItems}
+          alertItemIds={alertItemIds}
+          alertKeywordMap={alertKeywordMap}
+          isLoading={isLoading}
+          onRead={handleRead}
+        />
 
         {totalPages > 1 && (
           <div className="mt-8 flex items-center justify-center gap-3">

@@ -37,6 +37,7 @@ export interface FeedItem {
   sourceId: string;
   sourceName: string;
   sourceType: SourceType;
+  country?: string;
   category: CategoryId;
   alignment: Alignment;
   publishedAt: string;
