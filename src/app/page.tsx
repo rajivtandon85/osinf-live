@@ -8,6 +8,7 @@ import { SearchBar } from "@/components/SearchBar";
 import { CategoryFilter } from "@/components/CategoryFilter";
 import { FeedTimeline } from "@/components/FeedTimeline";
 import { AlertsPanel } from "@/components/AlertsPanel";
+import { BannerAd } from "@/components/BannerAd";
 
 interface FeedResponse {
   success: boolean;
@@ -269,6 +270,8 @@ export default function Dashboard() {
       />
 
       <main className="mx-auto max-w-7xl px-4 py-6">
+        <BannerAd />
+
         <div className="mb-4">
           <SearchBar
             value={searchQuery}

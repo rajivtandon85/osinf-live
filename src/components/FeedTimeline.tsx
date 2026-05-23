@@ -2,6 +2,7 @@
 
 import { FeedItem } from "@/types/feed";
 import { FeedCard } from "./FeedCard";
+import { InFeedAd } from "./InFeedAd";
 
 interface FeedTimelineProps {
   items: FeedItem[];
@@ -47,17 +48,30 @@ export function FeedTimeline({
     return true;
   });
 
+  const FEED_AD_INTERVAL = 8;
+  const withAds: Array<{ kind: "item"; item: FeedItem } | { kind: "ad"; key: string }> = [];
+  deduped.forEach((item, idx) => {
+    withAds.push({ kind: "item", item });
+    if ((idx + 1) % FEED_AD_INTERVAL === 0 && idx !== deduped.length - 1) {
+      withAds.push({ kind: "ad", key: `infeed-${idx}` });
+    }
+  });
+
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {deduped.map((item) => (
-        <FeedCard
-          key={item.id}
-          item={item}
-          isAlert={alertItemIds.has(item.id)}
-          alertKeyword={alertKeywordMap[item.id]}
-          onRead={onRead}
-        />
-      ))}
+      {withAds.map((entry) =>
+        entry.kind === "ad" ? (
+          <InFeedAd key={entry.key} className="sm:col-span-2 lg:col-span-3" />
+        ) : (
+          <FeedCard
+            key={entry.item.id}
+            item={entry.item}
+            isAlert={alertItemIds.has(entry.item.id)}
+            alertKeyword={alertKeywordMap[entry.item.id]}
+            onRead={onRead}
+          />
+        )
+      )}
     </div>
   );
 }
