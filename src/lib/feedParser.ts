@@ -154,6 +154,13 @@ function isSponsored(item: { link?: string; isoDate?: string; pubDate?: string }
   return false;
 }
 
+function isFuturePublished(isoLike: string): boolean {
+  const ts = new Date(isoLike).getTime();
+  if (Number.isNaN(ts)) return false;
+  // Keep a small tolerance for clock skew between publishers and our server.
+  return ts > Date.now() + 5 * 60 * 1000;
+}
+
 async function fetchSource(source: FeedSource): Promise<FeedItem[]> {
   try {
     const feed = await parser.parseURL(source.url);
@@ -170,6 +177,11 @@ async function fetchSource(source: FeedSource): Promise<FeedItem[]> {
         const summary = stripHtml(
           item.contentSnippet || item.summary || item.content || ""
         ).slice(0, 300);
+        const publishedAt =
+          item.isoDate ||
+          item.pubDate ||
+          new Date().toISOString();
+
         return {
           id: makeId(source.id, link, title),
           title,
@@ -180,14 +192,12 @@ async function fetchSource(source: FeedSource): Promise<FeedItem[]> {
           sourceType: source.sourceType ?? "news",
           category: source.category,
           alignment: source.alignment,
-          publishedAt:
-            item.isoDate ||
-            item.pubDate ||
-            new Date().toISOString(),
+          publishedAt,
           imageUrl: extractImage(rawItem),
           tags: normalizeTags(item.categories),
         };
       })
+      .filter((item) => !isFuturePublished(item.publishedAt))
       .filter((item) => isLikelyEnglish(item.title, item.summary));
   } catch (err) {
     console.error(`[feed] Failed to fetch ${source.id}:`, (err as Error).message);

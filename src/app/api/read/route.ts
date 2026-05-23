@@ -95,6 +95,64 @@ function extractBasicFromHtml(html: string): { title: string; content: string; e
   };
 }
 
+function cleanExtractedHtml(html: string): string {
+  let cleaned = html;
+
+  // Remove paragraphs/lists/divs that are common paywall/newsletter/comment/legal boilerplate.
+  const noisyTextMarkers = [
+    "you don\u2019t have any active subscription",
+    "you don't have any active subscription",
+    "additional subscription benefits",
+    "need help with your subscription",
+    "published -",
+    "updated -",
+    "copyright",
+    "terms & conditions",
+    "institutional subscriber",
+    "comments have to be in english",
+    "community guidelines",
+    "we have migrated to a new commenting platform",
+    "if you are already a registered user",
+    "first day first show",
+    "today's cache",
+    "science for all",
+    "gender agenda",
+    "the hindu on books",
+  ];
+
+  for (const marker of noisyTextMarkers) {
+    const escaped = marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const blockPattern = new RegExp(
+      `<(?:p|div|li|section|aside|h[1-6])[^>]*>[\\s\\S]{0,1200}?${escaped}[\\s\\S]{0,1200}?<\\/(?:p|div|li|section|aside|h[1-6])>`,
+      "gi"
+    );
+    cleaned = cleaned.replace(blockPattern, "");
+  }
+
+  // Trim everything after common footer/comment markers if they still remain.
+  const cutMarkers = [
+    "<p>published -",
+    "<p>updated -",
+    "<p>copyright",
+    "<p>terms &amp; conditions",
+    "<p>terms & conditions",
+    "<p>comments have to be in english",
+    "<p>we have migrated to a new commenting platform",
+  ];
+
+  const lower = cleaned.toLowerCase();
+  let cutAt = -1;
+  for (const marker of cutMarkers) {
+    const idx = lower.indexOf(marker);
+    if (idx !== -1 && (cutAt === -1 || idx < cutAt)) cutAt = idx;
+  }
+  if (cutAt !== -1) {
+    cleaned = cleaned.slice(0, cutAt);
+  }
+
+  return cleaned.trim();
+}
+
 export async function GET(req: NextRequest) {
   const url = req.nextUrl.searchParams.get("url");
 
@@ -247,9 +305,17 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    const cleanedContent = cleanExtractedHtml(absolutifyImages(content, url));
+    if (!cleanedContent || cleanedContent.replace(/<[^>]+>/g, "").trim().length < 20) {
+      return NextResponse.json(
+        { success: false, error: "Could not extract article content", code: "EXTRACTION_EMPTY", stage: "extract" },
+        { status: 422 }
+      );
+    }
+
     const data = {
       title,
-      content: absolutifyImages(content, url),
+      content: cleanedContent,
       byline,
       siteName,
       excerpt,
