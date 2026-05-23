@@ -154,10 +154,15 @@ export async function GET(req: NextRequest) {
   try {
     // Check cache first
     const key = cacheKey(url);
-    const cached = await redis.get(key);
-    if (cached) {
-      const parsed = typeof cached === "string" ? JSON.parse(cached) : cached;
-      return NextResponse.json({ success: true, data: parsed });
+    try {
+      const cached = await redis.get(key);
+      if (cached) {
+        const parsed = typeof cached === "string" ? JSON.parse(cached) : cached;
+        return NextResponse.json({ success: true, data: parsed });
+      }
+    } catch (err) {
+      // Cache failures should not block article rendering.
+      console.error("[api/read] cache read failed:", (err as Error).message);
     }
 
     // Fetch the page with a browser-like User-Agent
@@ -249,8 +254,12 @@ export async function GET(req: NextRequest) {
       method,
     };
 
-    // Cache the result
-    await redis.set(key, JSON.stringify(data), { ex: ARTICLE_CACHE_TTL });
+    // Cache the result (best effort)
+    try {
+      await redis.set(key, JSON.stringify(data), { ex: ARTICLE_CACHE_TTL });
+    } catch (err) {
+      console.error("[api/read] cache write failed:", (err as Error).message);
+    }
 
     return NextResponse.json({ success: true, data });
   } catch (err) {
