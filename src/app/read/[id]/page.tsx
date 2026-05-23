@@ -6,6 +6,7 @@ import { formatDistanceToNow } from "date-fns";
 import { FeedItem } from "@/types/feed";
 import { CATEGORIES } from "@/lib/sources";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { InlineAd } from "@/components/InlineAd";
 
 interface ArticleData {
   title: string;
@@ -221,6 +222,8 @@ export default function ReaderPage() {
               {article?.content && (
                 <div className="article-content max-w-none" dangerouslySetInnerHTML={{ __html: article.content }} />
               )}
+
+              <InlineAd />
 
               {blocked ? (
                 <div className="rounded-lg border border-amber-500/35 bg-amber-500/10 p-4 text-sm text-amber-300">
