@@ -21,6 +21,8 @@ interface ReadResponse {
   data?: ArticleData;
   error?: string;
   code?: string;
+  stage?: string;
+  detail?: string;
 }
 
 function feedSummaryFallback(feedItem: FeedItem, message: string): { article: ArticleData; message: string } {
@@ -96,7 +98,11 @@ export default function ReaderPage() {
           setArticle(fallback.article);
           setError(fallback.message);
         } else if (!readRes.ok) {
-          const fallback = feedSummaryFallback(feedItem, "Source could not be parsed right now. Showing feed summary in-app.");
+          const reason = readJson?.code ? `${readJson.code}${readJson.stage ? ` (${readJson.stage})` : ""}` : `HTTP ${readRes.status}`;
+          const fallback = feedSummaryFallback(
+            feedItem,
+            `Source could not be parsed right now (${reason}). Showing feed summary in-app.`
+          );
           setArticle(fallback.article);
           setError(fallback.message);
         } else {

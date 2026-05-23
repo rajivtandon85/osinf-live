@@ -166,15 +166,29 @@ export async function GET(req: NextRequest) {
     }
 
     // Fetch the page with a browser-like User-Agent
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-      },
-      signal: AbortSignal.timeout(10_000),
-    });
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.9",
+        },
+        signal: AbortSignal.timeout(10_000),
+      });
+    } catch (err) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Network fetch failed",
+          code: "FETCH_THREW",
+          stage: "fetch",
+          detail: (err as Error).message,
+        },
+        { status: 502 }
+      );
+    }
 
     if (!response.ok) {
       const maybeHtml = await response.text().catch(() => "");
@@ -190,7 +204,21 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const html = await response.text();
+    let html = "";
+    try {
+      html = await response.text();
+    } catch (err) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Failed reading response body",
+          code: "BODY_READ_FAILED",
+          stage: "fetch",
+          detail: (err as Error).message,
+        },
+        { status: 502 }
+      );
+    }
 
     if (hasChallengeSignals(html, response.status)) {
       return NextResponse.json(
@@ -211,7 +239,13 @@ export async function GET(req: NextRequest) {
     } catch (err) {
       console.error("[api/read] dom/readability failure:", (err as Error).message);
       return NextResponse.json(
-        { success: false, error: "Could not parse source document", code: "PARSER_FAILED" },
+        {
+          success: false,
+          error: "Could not parse source document",
+          code: "PARSER_FAILED",
+          stage: "parse",
+          detail: (err as Error).message,
+        },
         { status: 422 }
       );
     }
@@ -239,7 +273,12 @@ export async function GET(req: NextRequest) {
 
     if (!content || content.length < MIN_CONTENT_LENGTH) {
       return NextResponse.json(
-        { success: false, error: "Could not extract article content", code: "EXTRACTION_EMPTY" },
+        {
+          success: false,
+          error: "Could not extract article content",
+          code: "EXTRACTION_EMPTY",
+          stage: "extract",
+        },
         { status: 422 }
       );
     }
@@ -265,8 +304,14 @@ export async function GET(req: NextRequest) {
   } catch (err) {
     console.error("[api/read] unhandled:", (err as Error).message);
     return NextResponse.json(
-      { success: false, error: "Extraction failed", code: "UNHANDLED" },
-      { status: 500 }
+      {
+        success: false,
+        error: "Extraction failed",
+        code: "UNHANDLED",
+        stage: "unknown",
+        detail: (err as Error).message,
+      },
+      { status: 422 }
     );
   }
 }
