@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { JSDOM } from "jsdom";
-import { Readability } from "@mozilla/readability";
 import crypto from "crypto";
 import { redis } from "@/lib/redis";
 
@@ -52,108 +50,61 @@ function hasChallengeSignals(html: string, status?: number): boolean {
     body.includes("why do i have to complete a captcha") ||
     body.includes("please enable javascript and cookies to continue");
 
-  if (status === 403 || status === 429) {
-    return strongTitleSignal || strongBodySignal;
-  }
-
-  // For HTTP 200, require both a challenge-like title and a strong body marker.
+  if (status === 403 || status === 429) return strongTitleSignal || strongBodySignal;
   return strongTitleSignal && strongBodySignal;
 }
 
 function sanitizeText(text: string): string {
-  return text.replace(/\s+/g, " ").trim();
+  return text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
 
 function buildParagraphHtml(text: string): string {
-  const lines = sanitizeText(text)
-    .split(/\n{2,}|\.(?=\s+[A-Z])/)
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-
-  if (!lines.length) return "";
-  return lines.map((line) => `<p>${line}.</p>`).join("\n");
+  const clean = text.replace(/\s+/g, " ").trim();
+  if (!clean) return "";
+  const parts = clean.split(/\.(?=\s+[A-Z])/).map((p) => p.trim()).filter(Boolean);
+  return (parts.length ? parts : [clean]).map((line) => `<p>${line}${line.endsWith(".") ? "" : "."}</p>`).join("\n");
 }
 
-function extractJsonLdArticle(document: Document): { content?: string; byline?: string } {
-  const scripts = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
+function extractBasicFromHtml(html: string): { title: string; content: string; excerpt: string } {
+  const title = (html.match(/<title[^>]*>(.*?)<\/title>/i)?.[1] || "").trim();
 
-  for (const script of scripts) {
-    const raw = script.textContent?.trim();
-    if (!raw) continue;
+  // Prefer article/main body chunks first.
+  const articleChunk =
+    html.match(/<article[\s\S]*?<\/article>/i)?.[0] ||
+    html.match(/<main[\s\S]*?<\/main>/i)?.[0] ||
+    "";
 
-    try {
-      const parsed = JSON.parse(raw);
-      const entries = Array.isArray(parsed)
-        ? parsed
-        : Array.isArray(parsed?.["@graph"])
-          ? parsed["@graph"]
-          : [parsed];
+  const paragraphMatches = Array.from((articleChunk || html).matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi));
+  const paragraphs = paragraphMatches
+    .map((m) => sanitizeText(m[1] || ""))
+    .filter((p) => p.length > 30)
+    .slice(0, 80);
 
-      for (const entry of entries) {
-        const type = entry?.["@type"];
-        const types = Array.isArray(type) ? type : [type];
-        if (!types.some((t) => typeof t === "string" && /article|newsarticle|reportage/i.test(t))) {
-          continue;
-        }
+  const joined = paragraphs.join("\n\n");
+  const content = paragraphs.map((p) => `<p>${p}</p>`).join("\n");
 
-        const articleBody = typeof entry?.articleBody === "string" ? entry.articleBody : "";
-        const byline =
-          typeof entry?.author?.name === "string"
-            ? entry.author.name
-            : Array.isArray(entry?.author)
-              ? entry.author.map((a: { name?: string }) => a?.name).filter(Boolean).join(", ")
-              : "";
+  const description =
+    html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i)?.[1] ||
+    html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i)?.[1] ||
+    "";
 
-        if (articleBody.length >= MIN_CONTENT_LENGTH) {
-          return { content: buildParagraphHtml(articleBody), byline };
-        }
-      }
-    } catch {
-      continue;
-    }
-  }
-
-  return {};
-}
-
-function extractFromDom(document: Document): string {
-  const selectors = [
-    "article",
-    "main article",
-    "[itemprop='articleBody']",
-    ".story__content",
-    ".article-body",
-    ".entry-content",
-  ];
-
-  for (const selector of selectors) {
-    const node = document.querySelector(selector);
-    if (!node) continue;
-    const paragraphs = Array.from(node.querySelectorAll("p"))
-      .map((p) => sanitizeText(p.textContent || ""))
-      .filter((p) => p.length > 0);
-    const joined = paragraphs.join("\n\n");
-    if (joined.length >= MIN_CONTENT_LENGTH) {
-      return paragraphs.map((p) => `<p>${p}</p>`).join("\n");
-    }
-  }
-
-  return "";
+  return {
+    title,
+    content: joined.length >= MIN_CONTENT_LENGTH ? content : buildParagraphHtml(description),
+    excerpt: description,
+  };
 }
 
 export async function GET(req: NextRequest) {
   const url = req.nextUrl.searchParams.get("url");
 
   if (!url) {
-    return NextResponse.json(
-      { success: false, error: "Missing url parameter" },
-      { status: 400 }
-    );
+    return NextResponse.json({ success: false, error: "Missing url parameter" }, { status: 400 });
   }
 
   try {
-    // Check cache first
     const key = cacheKey(url);
+
     try {
       const cached = await redis.get(key);
       if (cached) {
@@ -161,11 +112,9 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ success: true, data: parsed });
       }
     } catch (err) {
-      // Cache failures should not block article rendering.
       console.error("[api/read] cache read failed:", (err as Error).message);
     }
 
-    // Fetch the page with a browser-like User-Agent
     let response: Response;
     try {
       response = await fetch(url, {
@@ -194,106 +143,120 @@ export async function GET(req: NextRequest) {
       const maybeHtml = await response.text().catch(() => "");
       if ((response.status === 403 || response.status === 429) && hasChallengeSignals(maybeHtml, response.status)) {
         return NextResponse.json(
-          { success: false, error: "Source blocked extraction", code: "SOURCE_BLOCKED" },
+          { success: false, error: "Source blocked extraction", code: "SOURCE_BLOCKED", stage: "fetch" },
           { status: 403 }
         );
       }
       return NextResponse.json(
-        { success: false, error: `Fetch failed: ${response.status}`, code: "FETCH_FAILED" },
+        { success: false, error: `Fetch failed: ${response.status}`, code: "FETCH_FAILED", stage: "fetch" },
         { status: 502 }
       );
     }
 
-    let html = "";
-    try {
-      html = await response.text();
-    } catch (err) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Failed reading response body",
-          code: "BODY_READ_FAILED",
-          stage: "fetch",
-          detail: (err as Error).message,
-        },
-        { status: 502 }
-      );
-    }
+    const html = await response.text();
 
     if (hasChallengeSignals(html, response.status)) {
       return NextResponse.json(
-        { success: false, error: "Source blocked extraction", code: "SOURCE_BLOCKED" },
+        { success: false, error: "Source blocked extraction", code: "SOURCE_BLOCKED", stage: "fetch" },
         { status: 403 }
       );
     }
 
-    // Parse with JSDOM + Readability
-    let dom: JSDOM;
-    let article: ReturnType<Readability["parse"]>;
+    let title = "";
+    let content = "";
+    let byline = "";
+    let siteName = "";
+    let excerpt = "";
+    let method = "basic";
+
+    // Try readability stack first, but never crash if unavailable.
     try {
-      dom = new JSDOM(html, { url });
-      const reader = new Readability(dom.window.document, {
-        keepClasses: false,
-      });
-      article = reader.parse();
+      const [{ JSDOM }, { Readability }] = await Promise.all([
+        import("jsdom"),
+        import("@mozilla/readability"),
+      ]);
+
+      const dom = new JSDOM(html, { url });
+      const reader = new Readability(dom.window.document, { keepClasses: false });
+      const article = reader.parse();
+
+      title = article?.title || "";
+      content = article?.content || "";
+      byline = article?.byline || "";
+      siteName = article?.siteName || "";
+      excerpt = article?.excerpt || "";
+      method = "readability";
+
+      if (!content || content.length < MIN_CONTENT_LENGTH) {
+        const jsonLdScripts = Array.from(dom.window.document.querySelectorAll('script[type="application/ld+json"]'));
+        for (const script of jsonLdScripts) {
+          const raw = script.textContent?.trim();
+          if (!raw) continue;
+          try {
+            const parsed = JSON.parse(raw);
+            const entries = Array.isArray(parsed)
+              ? parsed
+              : Array.isArray(parsed?.["@graph"])
+                ? parsed["@graph"]
+                : [parsed];
+            for (const entry of entries) {
+              const t = entry?.["@type"];
+              const types = Array.isArray(t) ? t : [t];
+              if (!types.some((x) => typeof x === "string" && /article|newsarticle|reportage/i.test(x))) continue;
+              const body = typeof entry?.articleBody === "string" ? entry.articleBody : "";
+              if (body.length >= MIN_CONTENT_LENGTH) {
+                content = buildParagraphHtml(body);
+                const author = entry?.author;
+                byline = byline ||
+                  (typeof author?.name === "string"
+                    ? author.name
+                    : Array.isArray(author)
+                      ? author.map((a: { name?: string }) => a?.name).filter(Boolean).join(", ")
+                      : "");
+                method = "jsonld";
+                break;
+              }
+            }
+            if (content.length >= MIN_CONTENT_LENGTH) break;
+          } catch {
+            continue;
+          }
+        }
+      }
+
+      if (!content || content.length < MIN_CONTENT_LENGTH) {
+        const basic = extractBasicFromHtml(html);
+        content = basic.content;
+        title = title || basic.title;
+        excerpt = excerpt || basic.excerpt;
+        method = "basic";
+      }
     } catch (err) {
-      console.error("[api/read] dom/readability failure:", (err as Error).message);
+      console.error("[api/read] readability import/parse failed:", (err as Error).message);
+      const basic = extractBasicFromHtml(html);
+      title = basic.title;
+      content = basic.content;
+      excerpt = basic.excerpt;
+      method = "basic";
+    }
+
+    if (!content || content.length < 20) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "Could not parse source document",
-          code: "PARSER_FAILED",
-          stage: "parse",
-          detail: (err as Error).message,
-        },
-        { status: 422 }
-      );
-    }
-
-    let content = article?.content || "";
-    let byline = article?.byline || "";
-    let method = "readability";
-
-    if (!content || content.length < MIN_CONTENT_LENGTH) {
-      const jsonLd = extractJsonLdArticle(dom.window.document);
-      if (jsonLd.content && jsonLd.content.length >= MIN_CONTENT_LENGTH) {
-        content = jsonLd.content;
-        byline = byline || jsonLd.byline || "";
-        method = "jsonld";
-      }
-    }
-
-    if (!content || content.length < MIN_CONTENT_LENGTH) {
-      const domContent = extractFromDom(dom.window.document);
-      if (domContent && domContent.length >= MIN_CONTENT_LENGTH) {
-        content = domContent;
-        method = "dom";
-      }
-    }
-
-    if (!content || content.length < MIN_CONTENT_LENGTH) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Could not extract article content",
-          code: "EXTRACTION_EMPTY",
-          stage: "extract",
-        },
+        { success: false, error: "Could not extract article content", code: "EXTRACTION_EMPTY", stage: "extract" },
         { status: 422 }
       );
     }
 
     const data = {
-      title: article?.title || "",
+      title,
       content: absolutifyImages(content, url),
       byline,
-      siteName: article?.siteName || "",
-      excerpt: article?.excerpt || "",
-      length: article?.length || content.length,
+      siteName,
+      excerpt,
+      length: content.length,
       method,
     };
 
-    // Cache the result (best effort)
     try {
       await redis.set(key, JSON.stringify(data), { ex: ARTICLE_CACHE_TTL });
     } catch (err) {
