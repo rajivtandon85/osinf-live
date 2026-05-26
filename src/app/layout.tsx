@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Script from "next/script";
+import { SiteFooter } from "@/components/SiteFooter";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -46,7 +47,10 @@ export default function RootLayout({
             crossOrigin="anonymous"
           />
         )}
-        {children}
+        <div className="flex min-h-screen flex-col">
+          <div className="flex-1">{children}</div>
+          <SiteFooter />
+        </div>
       </body>
     </html>
   );

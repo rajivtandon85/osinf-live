@@ -1,6 +1,7 @@
 "use client";
 
 import { formatDistanceToNow } from "date-fns";
+import Link from "next/link";
 import { ThemeToggle } from "./ThemeToggle";
 
 interface HeaderProps {
@@ -42,6 +43,15 @@ export function Header({
 
         {/* Status + Controls */}
         <div className="flex items-center gap-3">
+          <nav className="hidden items-center gap-3 text-xs text-[var(--muted)] md:flex">
+            <Link className="transition hover:text-[var(--text)]" href="/about">
+              About Us
+            </Link>
+            <Link className="transition hover:text-[var(--text)]" href="/contact">
+              Contact Us
+            </Link>
+          </nav>
+
           {/* Last refreshed */}
           {timeAgo && (
             <span className="hidden text-[11px] text-[var(--muted)] sm:block">
