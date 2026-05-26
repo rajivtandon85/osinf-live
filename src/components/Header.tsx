@@ -50,6 +50,12 @@ export function Header({
             <Link className="transition hover:text-[var(--text)]" href="/contact">
               Contact Us
             </Link>
+            <Link className="transition hover:text-[var(--text)]" href="/privacy">
+              Privacy
+            </Link>
+            <Link className="transition hover:text-[var(--text)]" href="/terms">
+              Terms
+            </Link>
           </nav>
 
           {/* Last refreshed */}

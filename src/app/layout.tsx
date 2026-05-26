@@ -6,6 +6,33 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "OSINF — Open Source Intelligence Feed",
   description: "Personal OSINF dashboard — aggregated feeds across geopolitical, cyber, maritime, aviation, and environmental domains.",
+  metadataBase: new URL("https://www.osinf.live"),
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: "OSINF — Open Source Intelligence Feed",
+    description:
+      "Monitor open source intelligence across geopolitical, cyber, maritime, aviation, environmental, and dark web domains.",
+    url: "https://www.osinf.live",
+    siteName: "OSINF",
+    type: "website",
+    images: [
+      {
+        url: "/icon-512.png",
+        width: 512,
+        height: 512,
+        alt: "OSINF",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "OSINF — Open Source Intelligence Feed",
+    description:
+      "Monitor open source intelligence across geopolitical, cyber, maritime, aviation, environmental, and dark web domains.",
+    images: ["/icon-512.png"],
+  },
   icons: {
     icon: [
       { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
