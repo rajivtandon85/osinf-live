@@ -20,7 +20,7 @@ export function useAdSlotState() {
 
     const syncState = () => {
       const status = adNode.getAttribute("data-ad-status");
-      if (status === "filled" || adNode.querySelector("iframe")) {
+      if (status === "filled") {
         setState("filled");
         return;
       }
